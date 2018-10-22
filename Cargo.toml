@@ -1,0 +1,15 @@
+[package]
+name = "xi-lib"
+version = "0.1.0"
+authors = ["David Soria Parra <dsp@experimentalworks.net>"]
+
+[lib]
+name = "xilib"
+crate-type = ["lib", "staticlib", "cdylib"]
+
+[dependencies]
+xi-core-lib = { git = "https://github.com/xi-editor/xi-editor" }
+xi-rpc = { git = "https://github.com/xi-editor/xi-editor" }
+
+[build-dependencies]
+cbindgen = "0.6.6"

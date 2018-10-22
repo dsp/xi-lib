@@ -1,0 +1,4 @@
+target
+!tests/Makefile
+!tests/*.c
+headers/
