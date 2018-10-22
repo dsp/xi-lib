@@ -35,15 +35,18 @@ impl XiInternalState {
 #[repr(C)]
 pub struct XiHandle {
     version: u32,
-    internal: XiInternalState,
+    internal: *mut XiInternalState,
 }
 
 #[no_mangle]
-pub extern "C" fn xi_init(xi: &XiHandle) -> XiHandle {
-    XiHandle {
-        version: 1,
-        internal: XiInternalState::new(),
-    }
+pub extern "C" fn xi_init() -> *mut XiHandle {
+    let state = Box::new(XiInternalState::new());
+    let b = Box::new(
+        XiHandle {
+            version: 1,
+            internal: Box::into_raw(state),
+        });
+    Box::into_raw(b)
 }
 
 #[no_mangle]
@@ -53,4 +56,5 @@ pub extern "C" fn xi_send_message(xi: XiHandle, msg: *const c_char) {
 
 #[no_mangle]
 pub extern "C" fn xi_shutdown() {
+    println!("Hello world");
 }

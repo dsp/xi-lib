@@ -13,14 +13,14 @@ else
     CC = cc
     STDLIBS = 
     CCFLAGS = -std=c99 -I$(CRATEROOT)headers -o
-    LDFLAGS_STATIC = $(CRATEROOT)target/debug/xilib.a
-    LDFLAGS_DYNAMIC = $(CRATEROOT)target/debug/xilib.dynlib
+    LDFLAGS_STATIC = $(CRATEROOT)target/debug/libxilib.a
+    LDFLAGS_DYNAMIC = $(CRATEROOT)target/debug/libxilib.dylib
     STATIC = init-static
     DYNAMIC = init-dynamic
 endif
 
 $(STATIC) :
-	$(CC) $(CCFLAGS) $@ $(SOURCE) $(STDLIBS) $(LDFLAGS)
+	$(CC) $(CCFLAGS) $@ $(SOURCE) $(STDLIBS) $(LDFLAGS_STATIC)
 
 $(DYNAMIC) :
-	$(CC) $(CCFLAGS) $@ $(SOURCE) $(LDFLAGS)
+	$(CC) $(CCFLAGS) $@ $(SOURCE) $(LDFLAGS_DYNAMIC)
