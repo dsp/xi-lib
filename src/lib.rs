@@ -35,7 +35,7 @@ impl XiInternalState {
 }
 
 
-type RecvMessageCallback = extern "C" fn (msg: *const c_char);
+type RecvMessageCallback = extern "C" fn (msg: *const c_char, len: u32);
 
 #[repr(C)]
 pub struct XiHandle {
@@ -44,7 +44,7 @@ pub struct XiHandle {
 }
 
 #[no_mangle]
-pub extern "C" fn xi_init(cb: RecvMessageCallback) -> *mut XiHandle {
+pub unsafe extern "C" fn xi_init(cb: RecvMessageCallback) -> *mut XiHandle {
     let internal = Box::new(XiInternalState::new(cb));
     let xi = Box::new(
         XiHandle {
@@ -55,10 +55,9 @@ pub extern "C" fn xi_init(cb: RecvMessageCallback) -> *mut XiHandle {
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn xi_send_message(xi: *mut XiHandle, msg: *const c_char) {
+pub unsafe extern "C" fn xi_send_message(xi: *mut XiHandle, msg: *const c_char, len: u32) {
     let internal = (*xi).internal;
-    ((*internal).recv_message)(CString::new("hello world").unwrap().as_ptr());
-    ((*internal).recv_message)(msg);
+    ((*internal).recv_message)(CString::new("hello world").unwrap().as_ptr(), 12);
 }
 
 /// Destruct the XiHandler object correctly
