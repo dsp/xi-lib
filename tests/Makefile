@@ -10,11 +10,16 @@ ifeq ($(OS),Windows_NT)
     STATIC = init-static.exe
     DYNAMIC = init-dynamic.exe
 else
+    UNAME_S := $(shell uname -s)
     CC = cc
-    STDLIBS = 
+    STDLIBS =
+    ifeq ($(UNAME_S),Darwin)
+        STDLIBS = -framework CoreServices
+    endif
     CCFLAGS = -std=c99 -I$(CRATEROOT)headers -o
-    LDFLAGS_STATIC = $(CRATEROOT)target/debug/libxilib.a
-    LDFLAGS_DYNAMIC = $(CRATEROOT)target/debug/libxilib.dylib
+    LDFLAGS = 
+    LDFLAGS_STATIC = $(LDFLAGS) $(CRATEROOT)target/debug/libxilib.a
+    LDFLAGS_DYNAMIC = $(LDFLAGS) $(CRATEROOT)target/debug/libxilib.dylib
     STATIC = init-static
     DYNAMIC = init-dynamic
 endif
@@ -24,3 +29,8 @@ $(STATIC) :
 
 $(DYNAMIC) :
 	$(CC) $(CCFLAGS) $@ $(SOURCE) $(LDFLAGS_DYNAMIC)
+:
+clean:
+	@rm $(STATIC) $(DYNAMIC)
+
+.PHONY: clean
