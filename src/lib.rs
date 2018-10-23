@@ -22,15 +22,20 @@ use xi_core_lib::{XiCore};
 /// to interact with internals.
 struct XiInternalState {
     core: XiCore,
+    recv_message: RecvMessageCallback,
 }
 
 impl XiInternalState {
-    fn new() -> Self {
+    fn new(cb: RecvMessageCallback) -> Self {
         XiInternalState {
             core: XiCore::new(),
+            recv_message: cb,
         }
     }
 }
+
+
+type RecvMessageCallback = extern "C" fn (msg: *const c_char);
 
 #[repr(C)]
 pub struct XiHandle {
@@ -39,8 +44,8 @@ pub struct XiHandle {
 }
 
 #[no_mangle]
-pub extern "C" fn xi_init() -> *mut XiHandle {
-    let internal = Box::new(XiInternalState::new());
+pub extern "C" fn xi_init(cb: RecvMessageCallback) -> *mut XiHandle {
+    let internal = Box::new(XiInternalState::new(cb));
     let xi = Box::new(
         XiHandle {
             version: 1,
@@ -54,6 +59,7 @@ pub extern "C" fn xi_send_message(xi: *mut XiHandle, msg: *const c_char) {
 
 }
 
+/// Destruct the XiHandler object correctly
 #[no_mangle]
 pub unsafe extern "C" fn xi_shutdown(xi: *mut XiHandle) {
     if ! xi.is_null() && ! (*xi).internal.is_null() {
