@@ -24,10 +24,13 @@ else
     DYNAMIC = init-dynamic
 endif
 
-$(STATIC) :
+all: $(STATIC) $(DYNAMIC)
+	
+
+$(STATIC) : $(SOURCE)
 	$(CC) $(CCFLAGS) $@ $(SOURCE) $(STDLIBS) $(LDFLAGS_STATIC)
 
-$(DYNAMIC) :
+$(DYNAMIC) : $(SOURCE)
 	$(CC) $(CCFLAGS) $@ $(SOURCE) $(LDFLAGS_DYNAMIC)
 :
 clean:
