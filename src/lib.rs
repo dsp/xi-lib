@@ -40,13 +40,13 @@ pub struct XiHandle {
 
 #[no_mangle]
 pub extern "C" fn xi_init() -> *mut XiHandle {
-    let state = Box::new(XiInternalState::new());
-    let b = Box::new(
+    let internal = Box::new(XiInternalState::new());
+    let xi = Box::new(
         XiHandle {
             version: 1,
-            internal: Box::into_raw(state),
+            internal: Box::into_raw(internal),
         });
-    Box::into_raw(b)
+    Box::into_raw(xi)
 }
 
 #[no_mangle]
