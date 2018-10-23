@@ -43,8 +43,9 @@ pub struct XiHandle {
     internal: *mut XiInternalState,
 }
 
+/// Allocate Xi internal state.
 #[no_mangle]
-pub unsafe extern "C" fn xi_init(cb: RecvMessageCallback) -> *mut XiHandle {
+pub unsafe extern "C" fn xi_create(cb: RecvMessageCallback) -> *mut XiHandle {
     let internal = Box::new(XiInternalState::new(cb));
     let xi = Box::new(
         XiHandle {
@@ -54,15 +55,25 @@ pub unsafe extern "C" fn xi_init(cb: RecvMessageCallback) -> *mut XiHandle {
     Box::into_raw(xi)
 }
 
+/// Starts Xi on the current thread. This should be on a designated Xi thread
+#[no_mangle]
+pub unsafe extern "C" fn xi_start(xi: *mut XiHandle) {
+}
+
 #[no_mangle]
 pub unsafe extern "C" fn xi_send_message(xi: *mut XiHandle, msg: *const c_char, len: u32) {
     let internal = (*xi).internal;
     ((*internal).recv_message)(CString::new("hello world").unwrap().as_ptr(), 12);
 }
 
-/// Destruct the XiHandler object correctly
+/// Shutdown an Xi instance. Must be called from the same thread as xi_start
 #[no_mangle]
 pub unsafe extern "C" fn xi_shutdown(xi: *mut XiHandle) {
+}
+
+/// Destruct the XiHandler object correctly
+#[no_mangle]
+pub unsafe extern "C" fn xi_free(xi: *mut XiHandle) {
     if ! xi.is_null() && ! (*xi).internal.is_null() {
         std::mem::drop(Box::from_raw((*xi).internal));
         std::mem::drop(Box::from_raw(xi));
