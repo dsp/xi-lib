@@ -55,6 +55,9 @@ pub extern "C" fn xi_send_message(xi: XiHandle, msg: *const c_char) {
 }
 
 #[no_mangle]
-pub extern "C" fn xi_shutdown() {
-    println!("Hello world");
+pub unsafe extern "C" fn xi_shutdown(xi: *mut XiHandle) {
+    if ! xi.is_null() && ! (*xi).internal.is_null() {
+        std::mem::drop(Box::from_raw((*xi).internal));
+        std::mem::drop(Box::from_raw(xi));
+    }
 }
