@@ -14,7 +14,7 @@
 extern crate xi_core_lib;
 
 use std::os::raw::c_char;
-
+use std::ffi::CString;
 use xi_core_lib::{XiCore};
 
 /// We are keeping our internal state in a private struct and only expose
@@ -55,8 +55,10 @@ pub extern "C" fn xi_init(cb: RecvMessageCallback) -> *mut XiHandle {
 }
 
 #[no_mangle]
-pub extern "C" fn xi_send_message(xi: *mut XiHandle, msg: *const c_char) {
-
+pub unsafe extern "C" fn xi_send_message(xi: *mut XiHandle, msg: *const c_char) {
+    let internal = (*xi).internal;
+    ((*internal).recv_message)(CString::new("hello world").unwrap().as_ptr());
+    ((*internal).recv_message)(msg);
 }
 
 /// Destruct the XiHandler object correctly
