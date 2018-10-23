@@ -50,7 +50,7 @@ pub extern "C" fn xi_init() -> *mut XiHandle {
 }
 
 #[no_mangle]
-pub extern "C" fn xi_send_message(xi: XiHandle, msg: *const c_char) {
+pub extern "C" fn xi_send_message(xi: *mut XiHandle, msg: *const c_char) {
 
 }
 
