@@ -39,7 +39,6 @@ type RecvMessageCallback = extern "C" fn (msg: *const c_char, len: u32);
 
 #[repr(C)]
 pub struct XiHandle {
-    version: u32,
     internal: *mut XiInternalState,
 }
 
@@ -49,7 +48,6 @@ pub unsafe extern "C" fn xi_create(cb: RecvMessageCallback) -> *mut XiHandle {
     let internal = Box::new(XiInternalState::new(cb));
     let xi = Box::new(
         XiHandle {
-            version: 1,
             internal: Box::into_raw(internal),
         });
     Box::into_raw(xi)
