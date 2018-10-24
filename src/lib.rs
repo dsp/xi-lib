@@ -12,10 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 extern crate xi_core_lib;
+extern crate xi_rpc;
 
 use std::os::raw::c_char;
-use std::ffi::CString;
+use std::ffi::{CStr, CString};
+use std::io::BufReader;
+use std::sync::mpsc;
+
 use xi_core_lib::{XiCore};
+use xi_rpc::parse::{RpcObject, MessageReader};
 
 /// We are keeping our internal state in a private struct and only expose
 /// a simple handler to callees. Callees must go through the public interface
@@ -23,17 +28,23 @@ use xi_core_lib::{XiCore};
 struct XiInternalState {
     core: XiCore,
     recv_message: RecvMessageCallback,
+    tx: mpsc::Sender<RpcObject>,
+    rx: mpsc::Receiver<RpcObject>,
+reader: MessageReader,
 }
 
 impl XiInternalState {
     fn new(cb: RecvMessageCallback) -> Self {
+        let (tx, rx) = mpsc::channel();
         XiInternalState {
             core: XiCore::new(),
+            reader: MessageReader::default(),
             recv_message: cb,
+            tx: tx,
+            rx: rx,
         }
     }
 }
-
 
 type RecvMessageCallback = extern "C" fn (msg: *const c_char, len: u32);
 
@@ -59,9 +70,36 @@ pub unsafe extern "C" fn xi_start(xi: *mut XiHandle) {
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn xi_send_message(xi: *mut XiHandle, msg: *const c_char, len: u32) {
+pub unsafe extern "C" fn xi_send_message(xi: *mut XiHandle, cmsg: *const c_char, len: u32) -> bool {
     let internal = (*xi).internal;
-    ((*internal).recv_message)(CString::new("hello world").unwrap().as_ptr(), 12);
+    let msg = CStr::from_ptr(cmsg);
+    let mut reader = BufReader::new(msg.to_bytes()); // I am unsure howe exspensive this is
+    let json = match (*internal).reader.next(&mut reader) {
+        Ok(json) => json,
+        Err(err) => {
+            // handle error
+            panic!("this ain't no json");
+        },
+    };
+    println!("{}", json.get_method().unwrap());
+    if json.is_response() {
+        let id = json.get_id().unwrap();
+        match json.into_response() {
+            Ok(resp) => {
+                // let resp = resp.map_err(Error::from);
+                // self.peer.handle_response(id, resp);
+                true
+            }
+            Err(msg) => {
+                // handle error
+                false
+            }
+        }
+        //((*internal).recv_message)(CString::new("hello world").unwrap().as_ptr(), 12);
+    } else {
+        (*internal).tx.send(json);
+        true
+    }
 }
 
 /// Shutdown an Xi instance. Must be called from the same thread as xi_start

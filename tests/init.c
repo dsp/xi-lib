@@ -19,7 +19,7 @@ int main(int argc, char ** argv) {
     pthread_t xi_thread_id;
     XiHandle * xi = xi_create(callme);
     pthread_create(&xi_thread_id, NULL, xi_thread, (void *) xi);
-    xi_send_message(xi, "foo", sizeof("foo"));
+    xi_send_message(xi, "{\"method\": \"new_view\"}", sizeof("{\"method\": \"new_view\"}"));
     pthread_join(xi_thread_id, NULL);
     xi_free(xi);
     return 0;
