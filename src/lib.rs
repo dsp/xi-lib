@@ -16,32 +16,26 @@ extern crate xi_rpc;
 
 use std::os::raw::c_char;
 use std::ffi::{CStr, CString};
-use std::io::BufReader;
+use std::io;
 use std::sync::mpsc;
 
 use xi_core_lib::{XiCore};
-use xi_rpc::parse::{RpcObject, MessageReader};
 
 /// We are keeping our internal state in a private struct and only expose
 /// a simple handler to callees. Callees must go through the public interface
 /// to interact with internals.
 struct XiInternalState {
     core: XiCore,
+    rpc_loop: xi_rpc::RpcLoop<io::Stdout>,
     recv_message: RecvMessageCallback,
-    tx: mpsc::Sender<RpcObject>,
-    rx: mpsc::Receiver<RpcObject>,
-reader: MessageReader,
 }
 
 impl XiInternalState {
     fn new(cb: RecvMessageCallback) -> Self {
-        let (tx, rx) = mpsc::channel();
         XiInternalState {
             core: XiCore::new(),
-            reader: MessageReader::default(),
+            rpc_loop: xi_rpc::RpcLoop::new(io::stdout()), // TODO: stdout() is actually not needed
             recv_message: cb,
-            tx: tx,
-            rx: rx,
         }
     }
 }
@@ -66,40 +60,24 @@ pub unsafe extern "C" fn xi_create(cb: RecvMessageCallback) -> *mut XiHandle {
 
 /// Starts Xi on the current thread. This should be on a designated Xi thread
 #[no_mangle]
-pub unsafe extern "C" fn xi_start(xi: *mut XiHandle) {
+pub unsafe extern "C" fn xi_start_core(xi: *mut XiHandle) {
+    let internal = (*xi).internal;
+    (*internal).rpc_loop.embedded_mainloop(&mut (*internal).core);
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn xi_start_receiver(xi: *mut XiHandle) {
+    // let internal = (*xi).internal;
+    // (*internal).rpc_loop.rx;
 }
 
 #[no_mangle]
 pub unsafe extern "C" fn xi_send_message(xi: *mut XiHandle, cmsg: *const c_char, len: u32) -> bool {
     let internal = (*xi).internal;
     let msg = CStr::from_ptr(cmsg);
-    let mut reader = BufReader::new(msg.to_bytes()); // I am unsure howe exspensive this is
-    let json = match (*internal).reader.next(&mut reader) {
-        Ok(json) => json,
-        Err(err) => {
-            // handle error
-            panic!("this ain't no json");
-        },
-    };
-    println!("{}", json.get_method().unwrap());
-    if json.is_response() {
-        let id = json.get_id().unwrap();
-        match json.into_response() {
-            Ok(resp) => {
-                // let resp = resp.map_err(Error::from);
-                // self.peer.handle_response(id, resp);
-                true
-            }
-            Err(msg) => {
-                // handle error
-                false
-            }
-        }
-        //((*internal).recv_message)(CString::new("hello world").unwrap().as_ptr(), 12);
-    } else {
-        (*internal).tx.send(json);
-        true
-    }
+    let mut reader = io::BufReader::new(msg.to_bytes()); // I am unsure howe exspensive this is
+    (*internal).rpc_loop.send_message(&mut reader);
+    true
 }
 
 /// Shutdown an Xi instance. Must be called from the same thread as xi_start
