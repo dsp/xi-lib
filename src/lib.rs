@@ -67,8 +67,11 @@ pub unsafe extern "C" fn xi_start_core(xi: *mut XiHandle) {
 
 #[no_mangle]
 pub unsafe extern "C" fn xi_start_receiver(xi: *mut XiHandle) {
-    // let internal = (*xi).internal;
-    // (*internal).rpc_loop.rx;
+    let internal = (*xi).internal;
+    loop {
+        let json_value = ((*internal).rpc_loop).next_receive_wait();
+        run_callback(&(*xi), &xi_rpc::value_to_string(&json_value));
+    }
 }
 
 #[no_mangle]
@@ -80,11 +83,6 @@ pub unsafe extern "C" fn xi_send_message(xi: *mut XiHandle, cmsg: *const c_char,
     true
 }
 
-/// Shutdown an Xi instance. Must be called from the same thread as xi_start
-#[no_mangle]
-pub unsafe extern "C" fn xi_shutdown(xi: *mut XiHandle) {
-}
-
 /// Destruct the XiHandler object correctly
 #[no_mangle]
 pub unsafe extern "C" fn xi_free(xi: *mut XiHandle) {
@@ -93,3 +91,15 @@ pub unsafe extern "C" fn xi_free(xi: *mut XiHandle) {
         std::mem::drop(Box::from_raw(xi));
     }
 }
+
+fn run_callback(xi: &XiHandle, msg: &str) {
+    let internal = xi.internal;
+    // We are generating a CString, to transfer ownership of the string to the callback.
+    let c_string = CString::new(msg.as_bytes()).unwrap();
+    let str_ptr = c_string.as_ptr();
+    let str_len = c_string.into_bytes_with_nul().len() as u32;
+    unsafe {
+        ((*internal).recv_message)(str_ptr, str_len);
+    }
+}
+
