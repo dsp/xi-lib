@@ -8,8 +8,8 @@ name = "xilib"
 crate-type = ["lib", "staticlib", "cdylib"]
 
 [dependencies]
-xi-core-lib = { git = "https://github.com/xi-editor/xi-editor" }
-xi-rpc = { git = "https://github.com/xi-editor/xi-editor" }
+xi-core-lib = { path = "xi-editor/rust/core-lib" }
+xi-rpc = { path = "xi-editor/rust/rpc" }
 
 [build-dependencies]
 cbindgen = "0.6.6"
