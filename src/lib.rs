@@ -47,7 +47,14 @@ pub struct XiHandle {
     internal: *mut XiInternalState,
 }
 
-/// Allocate Xi internal state.
+/// Create an Xi instance and returns its handle.
+///
+/// This function creates a new instance of the Xi and returns a handle. Memory
+/// is owned by xi-lib and internal state is hidden from the callee. You must use
+/// xi_shutdown and xi_free to release the handle.
+///
+/// After creating a xi instance, you likely want to start a thread where xi-core() is run.
+/// You need an additional thread to handle callbacks using xi_start_receiver().
 #[no_mangle]
 pub unsafe extern "C" fn xi_create(cb: RecvMessageCallback) -> *mut XiHandle {
     let internal = Box::new(XiInternalState::new(cb));
@@ -58,13 +65,20 @@ pub unsafe extern "C" fn xi_create(cb: RecvMessageCallback) -> *mut XiHandle {
     Box::into_raw(xi)
 }
 
-/// Starts Xi on the current thread. This should be on a designated Xi thread
+/// Starts Xi on the current thread.
+///
+/// This must be on a designated Xi thread.
 #[no_mangle]
 pub unsafe extern "C" fn xi_start_core(xi: *mut XiHandle) {
     let internal = (*xi).internal;
     (*internal).rpc_loop.embedded_mainloop(&mut (*internal).core);
 }
 
+/// Receives messages from xi-core and calls the callback handed to xi_create().
+///
+/// # Thread safety
+/// The callback function will called on the thread where xi_start_receiver() is called.
+/// The callee is responsbile for thread safety to other threads.
 #[no_mangle]
 pub unsafe extern "C" fn xi_start_receiver(xi: *mut XiHandle) {
     let internal = (*xi).internal;
@@ -74,6 +88,9 @@ pub unsafe extern "C" fn xi_start_receiver(xi: *mut XiHandle) {
     }
 }
 
+/// Send a message to Xi.
+///
+/// Sends a json serialized message to xi-core.
 #[no_mangle]
 pub unsafe extern "C" fn xi_send_message(xi: *mut XiHandle, cmsg: *const c_char, len: u32) -> bool {
     let internal = (*xi).internal;
@@ -92,7 +109,7 @@ pub unsafe extern "C" fn xi_free(xi: *mut XiHandle) {
     }
 }
 
-fn run_callback(xi: &XiHandle, msg: &str) {
+fn run_callback(xi: XiHandle, msg: &str) {
     let internal = xi.internal;
     // We are generating a CString, to transfer ownership of the string to the callback.
     let c_string = CString::new(msg.as_bytes()).unwrap();
@@ -102,4 +119,3 @@ fn run_callback(xi: &XiHandle, msg: &str) {
         ((*internal).recv_message)(str_ptr, str_len);
     }
 }
-
