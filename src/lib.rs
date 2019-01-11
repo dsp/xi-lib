@@ -14,7 +14,7 @@
 extern crate xi_core_lib;
 extern crate xi_rpc;
 
-use std::os::raw::c_char;
+use std::os::raw::{c_char, c_void};
 use std::ffi::{CStr, CString};
 use std::io;
 use std::sync::mpsc;
@@ -28,19 +28,21 @@ struct XiInternalState {
     core: XiCore,
     rpc_loop: xi_rpc::RpcLoop<io::Stdout>,
     recv_message: RecvMessageCallback,
+    recv_user_data: *const c_void,
 }
 
 impl XiInternalState {
-    fn new(cb: RecvMessageCallback) -> Self {
+    fn new(cb: RecvMessageCallback, user_data: *const c_void) -> Self {
         XiInternalState {
             core: XiCore::new(),
             rpc_loop: xi_rpc::RpcLoop::new(io::stdout()), // TODO: stdout() is actually not needed
             recv_message: cb,
+            recv_user_data: user_data,
         }
     }
 }
 
-type RecvMessageCallback = extern "C" fn (msg: *const c_char, len: u32);
+type RecvMessageCallback = extern "C" fn (msg: *const c_char, len: u32, user_data: *const c_void);
 
 #[repr(C)]
 pub struct XiHandle {
@@ -56,8 +58,9 @@ pub struct XiHandle {
 /// After creating a xi instance, you likely want to start a thread where xi-core() is run.
 /// You need an additional thread to handle callbacks using xi_start_receiver().
 #[no_mangle]
-pub unsafe extern "C" fn xi_create(cb: RecvMessageCallback) -> *mut XiHandle {
-    let internal = Box::new(XiInternalState::new(cb));
+pub unsafe extern "C" fn xi_create(cb: RecvMessageCallback, user_data: *const c_void) -> *mut XiHandle {
+    eprintln!("xi_create");
+    let internal = Box::new(XiInternalState::new(cb, user_data));
     let xi = Box::new(
         XiHandle {
             internal: Box::into_raw(internal),
@@ -95,7 +98,7 @@ pub unsafe extern "C" fn xi_start_receiver(xi: *mut XiHandle) {
 pub unsafe extern "C" fn xi_send_message(xi: *mut XiHandle, cmsg: *const c_char, len: u32) -> bool {
     let internal = (*xi).internal;
     let msg = CStr::from_ptr(cmsg);
-    let mut reader = io::BufReader::new(msg.to_bytes()); // I am unsure howe exspensive this is
+    let mut reader = io::BufReader::new(msg.to_bytes()); // I am unsure how exspensive this is
     (*internal).rpc_loop.send_message(&mut reader);
     true
 }
@@ -109,13 +112,13 @@ pub unsafe extern "C" fn xi_free(xi: *mut XiHandle) {
     }
 }
 
-fn run_callback(xi: XiHandle, msg: &str) {
+fn run_callback(xi: &XiHandle, msg: &str) {
     let internal = xi.internal;
     // We are generating a CString, to transfer ownership of the string to the callback.
     let c_string = CString::new(msg.as_bytes()).unwrap();
     let str_ptr = c_string.as_ptr();
     let str_len = c_string.into_bytes_with_nul().len() as u32;
     unsafe {
-        ((*internal).recv_message)(str_ptr, str_len);
+        ((*internal).recv_message)(str_ptr, str_len, (*internal).recv_user_data);
     }
 }
