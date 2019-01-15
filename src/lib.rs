@@ -117,7 +117,7 @@ fn run_callback(xi: &XiHandle, msg: &str) {
     // We are generating a CString, to transfer ownership of the string to the callback.
     let c_string = CString::new(msg.as_bytes()).unwrap();
     let str_ptr = c_string.as_ptr();
-    let str_len = c_string.into_bytes_with_nul().len() as u32;
+    let str_len = c_string.as_bytes_with_nul().len() as u32;
     unsafe {
         ((*internal).recv_message)(str_ptr, str_len, (*internal).recv_user_data);
     }
