@@ -26,7 +26,7 @@ use xi_core_lib::{XiCore};
 /// to interact with internals.
 struct XiInternalState {
     core: XiCore,
-    rpc_loop: xi_rpc::RpcLoop<io::Stdout>,
+    rpc_loop: xi_rpc::CoreRpcLoop,
     recv_message: RecvMessageCallback,
     recv_user_data: *const c_void,
 }
@@ -35,7 +35,7 @@ impl XiInternalState {
     fn new(cb: RecvMessageCallback, user_data: *const c_void) -> Self {
         XiInternalState {
             core: XiCore::new(),
-            rpc_loop: xi_rpc::RpcLoop::new(io::stdout()), // TODO: stdout() is actually not needed
+            rpc_loop: xi_rpc::CoreRpcLoop::new(), // TODO: stdout() is actually not needed
             recv_message: cb,
             recv_user_data: user_data,
         }
@@ -74,7 +74,7 @@ pub unsafe extern "C" fn xi_create(cb: RecvMessageCallback, user_data: *const c_
 #[no_mangle]
 pub unsafe extern "C" fn xi_start_core(xi: *mut XiHandle) {
     let internal = (*xi).internal;
-    (*internal).rpc_loop.embedded_mainloop(&mut (*internal).core);
+    (*internal).rpc_loop.mainloop(&mut (*internal).core);
 }
 
 /// Receives messages from xi-core and calls the callback handed to xi_create().
@@ -86,7 +86,8 @@ pub unsafe extern "C" fn xi_start_core(xi: *mut XiHandle) {
 pub unsafe extern "C" fn xi_start_receiver(xi: *mut XiHandle) {
     let internal = (*xi).internal;
     loop {
-        let json_value = ((*internal).rpc_loop).next_receive_wait();
+        let mut raw_peer = (*internal).rpc_loop.get_raw_peer();
+        let json_value = xi_rpc::next_receive_wait(&mut raw_peer);
         run_callback(&(*xi), &xi_rpc::value_to_string(&json_value));
     }
 }
@@ -98,8 +99,11 @@ pub unsafe extern "C" fn xi_start_receiver(xi: *mut XiHandle) {
 pub unsafe extern "C" fn xi_send_message(xi: *mut XiHandle, cmsg: *const c_char, len: u32) -> bool {
     let internal = (*xi).internal;
     let msg = CStr::from_ptr(cmsg);
-    let mut reader = io::BufReader::new(msg.to_bytes()); // I am unsure how exspensive this is
-    (*internal).rpc_loop.send_message(&mut reader);
+    let mut raw_peer = (*internal).rpc_loop.get_raw_peer();
+    let mut reader = xi_rpc::MessageReader::default();
+    let mut stream = io::BufReader::new(msg.to_bytes()); // I am unsure how exspensive this is
+    xi_rpc::send_message(&mut raw_peer, &mut reader, &mut stream);
+    // (*internal).rpc_loop.send_message(&mut reader);
     true
 }
 
